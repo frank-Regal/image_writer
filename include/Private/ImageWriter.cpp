@@ -64,3 +64,10 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg) {
         return;
     }
 }
+
+void ImageWriter::emptyCallback(const std_msgs::Empty::ConstPtr& msg) {
+     std::cout << "\n stop called" << std::endl;
+     video_writer_->release();
+     delete(video_writer_);
+     video_writer_ = nullptr;
+}

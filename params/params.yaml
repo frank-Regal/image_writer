@@ -1,11 +1,17 @@
-# Uncomment if you want to export files outside of this ros package path
-#filepath: "/User"
-
-# Uncomment if you want to timestamp the videos
-#isFilenameStamped: true
+# Uncomment to export files outside of this ros package path
+#filepath: "/path/to/directory"
 
 # Name of the file
-filename: "/output/test_video.avi"
+#filename: "/output/my_video.avi"
+
+# Uncomment to timestamp the videos filename
+#isFilenameStamped: true
+
+# Name of raw image topic
+topicname_image: "/hololens/RIGHT_RIGHT/image"
 
 # frames per second for input sensor_msgs/Image stream
 fps: 20
+
+# Name of empty image topic used to stop writing to file
+topicname_empty: "/hololens/stop"
