@@ -1,4 +1,3 @@
-
 #include "Public/ImageWriter.h"
 
 /** Constructor.
@@ -52,13 +51,12 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg) {
                 std::cerr << "Could not open the output video file for write\n";
                 return;
             } else {
-                std::cout << "File created and opened for writing" << std::endl;
+                std::cout << "[ImageWriter] File created and opened for writing.\n writing ..." << std::endl;
             }
         }
 
         // write to video
         video_writer_->write(image);
-        //video_writer_->release();
     } 
     catch (cv_bridge::Exception& e) 
     {
