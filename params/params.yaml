@@ -1,0 +1,11 @@
+# Uncomment if you want to export files outside of this ros package path
+#filepath: "/User"
+
+# Uncomment if you want to timestamp the videos
+#isFilenameStamped: true
+
+# Name of the file
+filename: "/data/test_video.avi"
+
+# frames per second for input sensor_msgs/Image stream
+fps: 20

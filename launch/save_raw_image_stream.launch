@@ -1,0 +1,8 @@
+<launch>
+    <!--load params-->
+    <rosparam command="load" file="$(find image_writer)/params/params.yaml" />
+
+    <!--launch node-->
+    <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
+
+</launch>
