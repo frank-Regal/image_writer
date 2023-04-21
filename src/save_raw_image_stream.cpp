@@ -9,7 +9,6 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
     std::string filepath {ros::package::getPath("image_writer")};
     std::string filename {"/output/example_video.avi"};
-    std::string output_path {filepath + filename};
     bool isFilenameStamped {false};
     int fps {30};
     
@@ -20,9 +19,8 @@ int main(int argc, char** argv) {
     nh.param<int>("fps", fps, fps);
 
     // setup output file
-    if (isFilenameStamped) {
-        output_path = filepath + "test" + filename;
-    }
+    std::string output_path {filepath + filename};
+    if (isFilenameStamped) { output_path = filepath + "test" + filename;}
 
     std::cout << "\n\nSaving File To:\n" << output_path << std::endl;
     
