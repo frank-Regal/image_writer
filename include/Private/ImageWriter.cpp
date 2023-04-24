@@ -68,7 +68,7 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
 
             // check for success
             if (!video_writer_->isOpened()) {
-                std::cerr << "\n[ImageWriter] ERROR: Could not create and open the file location for writing.\n";
+                std::cerr << "\n[ImageWriter] ERROR: Could not create and open the file location for writing.\n" << output_path_;
                 return;
             } else {
                 std::cout << "\n[ImageWriter] Writing Image Stream To: " << output_path_ << std::endl;

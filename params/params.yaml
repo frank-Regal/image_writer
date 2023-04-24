@@ -1,8 +1,8 @@
 # Uncomment to export files outside of this ros package path
-#filepath: "/path/to/directory"
+filepath: "/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"
 
 # Name of the file
-filename: "/output/stop.avi"
+filename: "/stop.avi"
 
 # Uncomment to timestamp the videos filename
 save_multi_stream_in_sequence: true
