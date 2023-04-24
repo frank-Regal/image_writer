@@ -2,10 +2,10 @@
 #filepath: "/path/to/directory"
 
 # Name of the file
-#filename: "/output/my_video.avi"
+filename: "/output/stop.avi"
 
 # Uncomment to timestamp the videos filename
-#isFilenameStamped: true
+save_multi_stream_in_sequence: true
 
 # Name of raw image topic
 topicname_image: "/hololens/RIGHT_RIGHT/image"
