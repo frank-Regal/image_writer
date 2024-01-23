@@ -1,6 +1,23 @@
 <launch>
-    <!--load params-->
-    <rosparam command="load" file="$(find image_writer)/params/params.yaml" />
+    <!-- Record single stream of sensor_msgs/Image topics -->
+
+    <!--ouput path-->
+    <param name="filepath" value="$(find image_writer)/output"/>
+
+    <!--ouput name-->
+    <param name="filename" value="/stop.avi"/>
+
+    <!--set true to timestamp output video filename-->
+    <param name="save_multi_stream_in_sequence" value='false'/>
+
+    <!--image topic to listen to-->
+    <param name="topicname_image" value="/hololens/image/raw"/>
+
+    <!--frame rate-->
+    <param name="fps" value='20'/>
+
+    <!--stop topic required to stop writing to video-->
+    <param name="topicname_empty" value="/hololens/stop"/>
 
     <!--launch node-->
     <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>

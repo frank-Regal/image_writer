@@ -1,5 +1,8 @@
 <launch>
-    <!-- STREAM 1 -->
+    <!-- Record multiple streams of sensor_msgs/Image topics -->
+    <!-- see "save_raw_image_stream.launch" for param descriptions-->
+
+    <!-- stream one -->
     <group ns="node_left_left">
         <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/ll_lh_stop.avi"/>
@@ -10,7 +13,7 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- STREAM 2 -->
+    <!-- stream two -->
     <group ns="node_left_front">
         <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/lf_lh_stop.avi"/>
@@ -21,7 +24,7 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- STREAM 3 -->
+    <!-- stream three -->
     <group ns="node_right_front">
         <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/rf_lh_stop.avi"/>
@@ -32,7 +35,7 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- STREAM 4 -->
+    <!-- stream four -->
     <group ns="node_right_right">
         <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/rr_lh_stop.avi"/>
