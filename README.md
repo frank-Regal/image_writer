@@ -3,7 +3,7 @@ OpenCV-based ROS package to create video files from raw sensor image messages.
 
 ## Getting Started
 ### Install Denpendencies
-1. [ROS Melodic](https://wiki.ros.org/melodic/Installation)
+1. [ROS Noetic](https://wiki.ros.org/noetic/Installation)
 2. [cv-bridge](https://wiki.ros.org/cv_bridge)
 ```
 sudo apt install ros-melodic-cv-bridge
