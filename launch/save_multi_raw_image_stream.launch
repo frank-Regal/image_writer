@@ -1,7 +1,7 @@
 <launch>
-    <!-- Launch node instance 1 -->
+    <!-- STREAM 1 -->
     <group ns="node_left_left">
-        <param name="filepath" value="/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"/>
+        <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/ll_lh_stop.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
         <param name="topicname_image" value="/hololens/LEFT_LEFT/image/raw"/>
@@ -10,9 +10,9 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- Launch node instance 2 -->
+    <!-- STREAM 2 -->
     <group ns="node_left_front">
-        <param name="filepath" value="/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"/>
+        <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/lf_lh_stop.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
         <param name="topicname_image" value="/hololens/LEFT_FRONT/image/raw"/>
@@ -21,9 +21,9 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- Launch node instance 2 -->
+    <!-- STREAM 3 -->
     <group ns="node_right_front">
-        <param name="filepath" value="/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"/>
+        <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/rf_lh_stop.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
         <param name="topicname_image" value="/hololens/RIGHT_FRONT/image/raw"/>
@@ -32,9 +32,9 @@
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
 
-    <!-- Launch node instance 2 -->
+    <!-- STREAM 4 -->
     <group ns="node_right_right">
-        <param name="filepath" value="/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"/>
+        <param name="filepath" value="$(find image_writer)/output"/>
         <param name="filename" value="/rr_lh_stop.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
         <param name="topicname_image" value="/hololens/RIGHT_RIGHT/image/raw"/>

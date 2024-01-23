@@ -4,7 +4,7 @@ project(image_writer)
 find_package(catkin REQUIRED COMPONENTS
   roslib
   cv_bridge
-  roscpp
+  roscppsu
   rospy
   std_msgs
   sensor_msgs
