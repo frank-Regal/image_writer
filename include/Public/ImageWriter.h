@@ -27,9 +27,11 @@ private:
     void updateOutputPath();
     std::string output_path_;
     std::string orig_output_path_;
+    std::string time_stamp_prefix_;
     int fps_;
     cv::VideoWriter* video_writer_;
     bool save_multi_stream_in_sequence_;
+    bool is_timestamp_set_;
 };
 
 #endif
