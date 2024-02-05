@@ -5,10 +5,10 @@
     <!-- stream one -->
     <group ns="node_left_left">
         <param name="filepath" value="$(find image_writer)/output"/>
-        <param name="filename" value="/a_ll_stop.avi"/>
+        <param name="filename" value="/a_ll_go_right.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
-        <param name="topicname_image" value="/hololens/LEFT_LEFT/image/raw"/>
-        <param name="fps" value='20'/>
+        <param name="topicname_image" value="/hololens/LEFT_LEFT/image"/>
+        <param name="fps" value='10'/>
         <param name="topicname_empty" value="/hololens/LEFT_LEFT/stop"/>
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
@@ -16,10 +16,10 @@
     <!-- stream two -->
     <group ns="node_left_front">
         <param name="filepath" value="$(find image_writer)/output"/>
-        <param name="filename" value="/b_lf_stop.avi"/>
+        <param name="filename" value="/b_lf_go_right.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
-        <param name="topicname_image" value="/hololens/LEFT_FRONT/image/raw"/>
-        <param name="fps" value='20'/>
+        <param name="topicname_image" value="/hololens/LEFT_FRONT/image"/>
+        <param name="fps" value='10'/>
         <param name="topicname_empty" value="/hololens/LEFT_FRONT/stop"/>
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
@@ -27,10 +27,10 @@
     <!-- stream three -->
     <group ns="node_right_front">
         <param name="filepath" value="$(find image_writer)/output"/>
-        <param name="filename" value="/c_rf_stop.avi"/>
+        <param name="filename" value="/c_rf_go_right.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
-        <param name="topicname_image" value="/hololens/RIGHT_FRONT/image/raw"/>
-        <param name="fps" value='20'/>
+        <param name="topicname_image" value="/hololens/RIGHT_FRONT/image"/>
+        <param name="fps" value='10'/>
         <param name="topicname_empty" value="/hololens/RIGHT_FRONT/stop"/>
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
@@ -38,10 +38,10 @@
     <!-- stream four -->
     <group ns="node_right_right">
         <param name="filepath" value="$(find image_writer)/output"/>
-        <param name="filename" value="/d_rr_stop.avi"/>
+        <param name="filename" value="/d_rr_go_right.avi"/>
         <param name="save_multi_stream_in_sequence" value='true'/>
-        <param name="topicname_image" value="/hololens/RIGHT_RIGHT/image/raw"/>
-        <param name="fps" value='20'/>
+        <param name="topicname_image" value="/hololens/RIGHT_RIGHT/image"/>
+        <param name="fps" value='10'/>
         <param name="topicname_empty" value="/hololens/RIGHT_RIGHT/stop"/>
         <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
     </group>
