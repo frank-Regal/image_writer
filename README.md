@@ -1,6 +1,7 @@
 # Image Writer
 OpenCV-based ROS package to create video files from raw sensor image messages.
 
+
 * [1. Installation](#1-installation)
 * [2. Running](#2-running)
 
