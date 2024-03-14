@@ -1,5 +1,5 @@
 # Uncomment to export files outside of this ros package path
-filepath: "/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"
+#filepath: "/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"
 
 # Name of the file
 filename: "/stop.avi"

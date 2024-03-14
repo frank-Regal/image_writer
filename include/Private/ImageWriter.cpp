@@ -10,6 +10,8 @@
 ImageWriter::ImageWriter(std::string output_path, int fps) :
             output_path_(output_path),
             orig_output_path_(output_path),
+            time_stamp_prefix_(""),
+            is_timestamp_set_(false),
             fps_(fps),
             video_writer_(nullptr),
             save_multi_stream_in_sequence_(false) {}
@@ -25,6 +27,8 @@ ImageWriter::ImageWriter(std::string output_path, int fps) :
 ImageWriter::ImageWriter(std::string output_path, int fps, bool save_multi_stream_in_sequence) :
             output_path_(output_path),
             orig_output_path_(output_path),
+            time_stamp_prefix_(""),
+            is_timestamp_set_(false),
             fps_(fps),
             video_writer_(nullptr),
             save_multi_stream_in_sequence_(save_multi_stream_in_sequence) {}
@@ -50,6 +54,13 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
     try 
     {
+        // set timestamp for this sequence of videos
+        if(!is_timestamp_set_) 
+        {
+            getTimeStamp(time_stamp_prefix_);
+            is_timestamp_set_ = true;
+        }
+
         // convert ROS Image message to OpenCV image
         cv::Mat image = cv_bridge::toCvShare(msg, msg->encoding)->image;
 
@@ -97,6 +108,7 @@ void ImageWriter::emptyCallback(const std_msgs::Empty::ConstPtr& msg)
      video_writer_->release();
      delete(video_writer_);
      video_writer_ = nullptr;
+     is_timestamp_set_ = false;
      std::cout << "[ImageWriter] Image writer reset. Ready to record new video stream." << std::endl;
 }
 
@@ -115,13 +127,11 @@ void ImageWriter::updateOutputPath()
     }
 
     // update output path variable with a time stamp pre-fixed to video file.
-    std::string time_stamp {""};
-    getTimeStamp(time_stamp);
     std::string path_to_file = orig_output_path_.substr(0, slashPos);
     std::string filename = orig_output_path_.substr(slashPos + 1);
 
     // new file path
-    output_path_ = path_to_file + "/" + time_stamp + filename;
+    output_path_ = path_to_file + "/" + time_stamp_prefix_ + filename;
 }
 
 /** Get current time stamp. 
