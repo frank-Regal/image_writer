@@ -2,7 +2,7 @@
 #filepath: "/mnt/e/devel/local/ws_hrecog/src/recorded_data/train"
 
 # Name of the file
-filename: "/stop.avi"
+filename: "/go_left.avi"
 
 # Uncomment to timestamp the videos filename
 save_multi_stream_in_sequence: true
@@ -14,4 +14,4 @@ topicname_image: "/hololens/RIGHT_RIGHT/image"
 fps: 20
 
 # Name of empty image topic used to stop writing to file
-topicname_empty: "/hololens/stop"
+topicname_empty: "/hololens/natural_input_capture/stop"
