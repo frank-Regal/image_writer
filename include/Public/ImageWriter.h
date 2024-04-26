@@ -16,22 +16,28 @@ class ImageWriter {
 public:
     // constructor & destructor
     ImageWriter(std::string output_path, int fps); 
-    ImageWriter(std::string output_path, int fps, bool process_multi_images);
+    ImageWriter(std::string output_path, int fps, bool save_multi_stream_in_sequence);
     ~ImageWriter();
 
     void imageCallback(const sensor_msgs::Image::ConstPtr& msg); // callback
     void emptyCallback(const std_msgs::Empty::ConstPtr& msg); // stop callback
+    void myTestFunc(std::string& text);
+
+protected:
+    void writeDataToImage(const sensor_msgs::Image::ConstPtr& msg);
+    void updateOutputPath();
+    void resetImageWriter();
+    std::string output_path_;
+    std::string orig_output_path_;
 
 private:
     void getTimeStamp(std::string& time_stamp_out);
-    void updateOutputPath();
-    std::string output_path_;
-    std::string orig_output_path_;
     std::string time_stamp_prefix_;
     int fps_;
     cv::VideoWriter* video_writer_;
     bool save_multi_stream_in_sequence_;
     bool is_timestamp_set_;
+    bool use_param_serv_;
 };
 
 #endif

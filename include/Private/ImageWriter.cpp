@@ -1,5 +1,6 @@
 #include "Public/ImageWriter.h"
 
+
 /** Constructor.
  * 
  * Image Saver class constructor
@@ -7,16 +8,9 @@
  * @param output_path path on machine to save file
  * @param fps input frames per second
  */
-ImageWriter::ImageWriter(std::string output_path, int fps) :
-            output_path_(output_path),
-            orig_output_path_(output_path),
-            time_stamp_prefix_(""),
-            is_timestamp_set_(false),
-            fps_(fps),
-            video_writer_(nullptr),
-            save_multi_stream_in_sequence_(false) {}
+ImageWriter::ImageWriter(std::string output_path, int fps) : ImageWriter::ImageWriter(output_path, fps, false) {}
 
-/** Constructor overloaded.
+/** Constructor
  * 
  * Image Saver class constructor. Pass a boolean to indicate you want to process multiple images.
  *
@@ -31,7 +25,7 @@ ImageWriter::ImageWriter(std::string output_path, int fps, bool save_multi_strea
             is_timestamp_set_(false),
             fps_(fps),
             video_writer_(nullptr),
-            save_multi_stream_in_sequence_(save_multi_stream_in_sequence) {}
+            save_multi_stream_in_sequence_(save_multi_stream_in_sequence){}
 
 /** Deconstructor.
  * 
@@ -43,6 +37,11 @@ ImageWriter::~ImageWriter()
     delete(video_writer_);
 }
 
+void ImageWriter::myTestFunc(std::string& mytext)
+{
+    std::cout << mytext << std::endl;
+}
+
 /** ROS image stream callback function.
  * 
  * This saves a ROS raw image stream to a video file.
@@ -52,15 +51,19 @@ ImageWriter::~ImageWriter()
  */
 void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
+    if(!is_timestamp_set_) 
+    {
+        getTimeStamp(time_stamp_prefix_);
+        is_timestamp_set_ = true;
+    }
+
+    writeDataToImage(msg);
+}
+
+void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg)
+{
     try 
     {
-        // set timestamp for this sequence of videos
-        if(!is_timestamp_set_) 
-        {
-            getTimeStamp(time_stamp_prefix_);
-            is_timestamp_set_ = true;
-        }
-
         // convert ROS Image message to OpenCV image
         cv::Mat image = cv_bridge::toCvShare(msg, msg->encoding)->image;
 
@@ -104,7 +107,11 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
  */
 void ImageWriter::emptyCallback(const std_msgs::Empty::ConstPtr& msg) 
 {
-     // release, delete, and reset the video writer class object
+    resetImageWriter();
+}
+
+void ImageWriter::resetImageWriter()
+{// release, delete, and reset the video writer class object
      video_writer_->release();
      delete(video_writer_);
      video_writer_ = nullptr;

@@ -27,7 +27,9 @@ include_directories(
 
 ## Declare C++ libraries
 add_library(ImageWriter include/Private/ImageWriter.cpp)
-target_link_libraries(ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
+add_library(SyncImageWriter include/Private/SyncImageWriter.cpp)
+target_link_libraries(SyncImageWriter ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
+
 
 ## Declare ROS executable
 add_executable(save_raw_image_stream src/save_raw_image_stream.cpp)
