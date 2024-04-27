@@ -27,16 +27,18 @@ include_directories(
 
 ## Declare C++ libraries
 add_library(ImageWriter include/Private/ImageWriter.cpp)
-add_library(SyncImageWriter include/Private/SyncImageWriter.cpp)
-target_link_libraries(SyncImageWriter ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
+## Declare C++ libraries
+add_library(ImageWriterParams include/Private/ImageWriterParams.cpp)
+target_link_libraries(ImageWriterParams ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 ## Declare ROS executable
 add_executable(save_raw_image_stream src/save_raw_image_stream.cpp)
-target_link_libraries(save_raw_image_stream ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter)
+target_link_libraries(save_raw_image_stream ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams)
 
 ## Declare python nodes
-catkin_install_python(PROGRAMS scripts/rosbag_manip.py
+catkin_install_python(PROGRAMS scripts/rosbag_manip.py scripts/video_writer.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

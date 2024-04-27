@@ -22,6 +22,7 @@
     <arg name="empty_topic"     default="/hololens/natural_input_capture/stop" />
     <arg name="name"            default="ros_image_stream" /> <!-- if empty, node will create a name with timestamp -->
     <arg name="process_seq"     default='true'/>
+    <arg name="use_param_server" default='false'/>
     <arg name="image_fps"       default='20'/>
 
 
@@ -32,6 +33,7 @@
     <param name="topicname_empty"   value="$(arg empty_topic)"/>
     <param name="fps"               value="$(arg image_fps)"/>
     <param name="save_multi_stream_in_sequence" value="$(arg process_seq)"/>
+    <param name="use_param_server"  value="$(arg use_param_server)"/>"
 
     <!--launch node-->
     <node 

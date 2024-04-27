@@ -1,5 +1,10 @@
 #include "Public/ImageWriter.h"
-
+#include <bits/stdc++.h>
+#include <iostream>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
 
 /** Constructor.
  * 
@@ -8,7 +13,8 @@
  * @param output_path path on machine to save file
  * @param fps input frames per second
  */
-ImageWriter::ImageWriter(std::string output_path, int fps) : ImageWriter::ImageWriter(output_path, fps, false) {}
+ImageWriter::ImageWriter(std::string output_path, int fps) 
+    : ImageWriter::ImageWriter(output_path, fps, false) {}
 
 /** Constructor
  * 
@@ -37,10 +43,11 @@ ImageWriter::~ImageWriter()
     delete(video_writer_);
 }
 
-void ImageWriter::myTestFunc(std::string& mytext)
-{
-    std::cout << mytext << std::endl;
-}
+// void ImageWriter::configForParamServer(ros::NodeHandle nh)
+// {
+//     use_param_server_ = true;
+//     nh_ = nh;
+// }
 
 /** ROS image stream callback function.
  * 
@@ -56,11 +63,11 @@ void ImageWriter::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
         getTimeStamp(time_stamp_prefix_);
         is_timestamp_set_ = true;
     }
-
-    writeDataToImage(msg);
+    auto func = [this](){this->updateOutputPath();};
+    writeDataToImage(msg, func);
 }
 
-void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg)
+void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg, std::function<void()> func)
 {
     try 
     {
@@ -73,7 +80,8 @@ void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg)
         // create video writer if it doesn't exist
         if (video_writer_ == nullptr) 
         {
-            if(save_multi_stream_in_sequence_){updateOutputPath();}
+            if(save_multi_stream_in_sequence_){func();}
+
 
             // Create instance setup and open video writer 
             video_writer_ = new cv::VideoWriter();
