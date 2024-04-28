@@ -1,0 +1,10 @@
+<launch>
+    <!-- input args -->
+    <arg name="video" default='./'/>
+    <arg name="output" default='~/'/>
+
+    <node name="video_frame_splitter" pkg="image_writer" type="video_frame_splitter.py" output="screen">
+        <param name="vid_path" value="$(arg video)" />
+        <param name="out_path" value="$(arg output)" />
+    </node>
+</launch>
