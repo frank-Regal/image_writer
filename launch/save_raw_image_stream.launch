@@ -1,25 +1,46 @@
+<!-- //////////////////////////////////////////////////////////////////////////////////
+    Title: Write Bags to Videos
+    Author: Frank Regal
+    Date: 2024-04-12
+    Version: 1.0
+    Copyright: Copyright© 2024 The University of Texas at Austin. All rights reserved.
+
+    Description:
+        Used to convert sensor_msgs/Image streams to videos
+    Basic Usage:
+        roslaunch image_writer save_raw_image_stream.launch
+
+    Launch Robofleet Connection Usage:
+        roslaunch gesture_recognition yolo_gesture_seg.launch connect_rf_client:='true' 
+
+///////////////////////////////////////////////////////////////////////////////////-->
 <launch>
-    <!-- Record single stream of sensor_msgs/Image topics -->
 
-    <!--ouput path-->
-    <param name="filepath" value="$(find image_writer)/output"/>
+    <!-- capture input args -->
+    <arg name="outdir"          default="$(find image_writer)/output/"/>
+    <arg name="image_topic"     default="/hololens/RIGHT_RIGHT/image" />
+    <arg name="empty_topic"     default="/hololens/natural_input_capture/stop" />
+    <arg name="name"            default="ros_image_stream" /> <!-- if empty, node will create a name with timestamp -->
+    <arg name="process_seq"     default='true'/>
+    <arg name="use_param_server" default='false'/>
+    <arg name="image_fps"       default='20'/>
 
-    <!--ouput name-->
-    <param name="filename" value="/go_right.avi"/>
 
-    <!--set true to timestamp output video filename-->
-    <param name="save_multi_stream_in_sequence" value='false'/>
-
-    <!--image topic to listen to-->
-    <param name="topicname_image" value="/hololens/RIGHT_RIGHT/image"/>
-
-    <!--frame rate-->
-    <param name="fps" value='20'/>
-
-    <!--stop topic required to stop writing to video-->
-    <param name="topicname_empty" value="/hololens/natural_input_capture/stop"/>
+    <!-- set params -->
+    <param name="filepath"          value="$(arg outdir)"/>
+    <param name="filename"          value="$(arg name)"/>
+    <param name="topicname_image"   value="$(arg image_topic)"/>
+    <param name="topicname_empty"   value="$(arg empty_topic)"/>
+    <param name="fps"               value="$(arg image_fps)"/>
+    <param name="save_multi_stream_in_sequence" value="$(arg process_seq)"/>
+    <param name="use_param_server"  value="$(arg use_param_server)"/>"
 
     <!--launch node-->
-    <node name="save_raw_image_stream" pkg="image_writer" type="save_raw_image_stream" output="screen"/>
+    <node 
+        name="save_raw_image_stream" 
+        pkg="image_writer" 
+        type="save_raw_image_stream" 
+        output="screen"
+    />
 
 </launch>
