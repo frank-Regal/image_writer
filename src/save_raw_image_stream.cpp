@@ -1,4 +1,6 @@
 #include <string>
+#include <filesystem>
+#include <cassert>
 
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
@@ -31,28 +33,31 @@ int main(int argc, char** argv) {
     nh.param<bool>("use_param_server", use_param_server, use_param_server);
     nh.param<int>("fps", fps, fps);
 
-    std::string output_path {filepath + filename + ".avi"};
-    std::cout << output_path << std::endl;
+    // std::string output_path {filepath + filename + ".avi"};
+    // std::cout << "Output Path: " << output_path << std::endl;
     
-    // create image writer object
-    std::string timestamp;
-    // Check if the parameter exists
-    if (nh.hasParam("config_for_dataset")) {
-        // Get the parameter
-        nh.param<std::string>("timestamp", timestamp, "default_value");
-        ROS_INFO("Timestamp parameter: %s", timestamp.c_str());
+    // create directories if they do not exist
+    std::filesystem::create_directories(filepath);
+    
+    // init subscribers
+    ros::Subscriber sub_image;
+    ros::Subscriber sub_empty;
+
+    // init objectsß
+    ImageWriterParams image_writer_params(filepath, fps, save_multi_stream_in_sequence, nh, node_ns);
+    ImageWriter image_writer(filepath, fps, save_multi_stream_in_sequence);
+
+    // setup subscribers
+    if (use_param_server){
+        sub_image = nh.subscribe<sensor_msgs::Image>(topicname_image, 100, &ImageWriterParams::imageCallback, &image_writer_params);
+        sub_empty = nh.subscribe<std_msgs::Empty>(topicname_empty, 1, &ImageWriterParams::emptyCallback, &image_writer_params);
+        ROS_WARN("'%s' node configured for param server mode", node_ns.c_str());
     } else {
-        ROS_WARN("Parameter 'timestamp' is not set. Using default value.");
-        timestamp = "default_value";  // Set default or handle the error
+        sub_image = nh.subscribe<sensor_msgs::Image>(topicname_image, 100, &ImageWriter::imageCallback, &image_writer);
+        sub_empty = nh.subscribe<std_msgs::Empty>(topicname_empty, 1, &ImageWriter::emptyCallback, &image_writer);
+        ROS_WARN("'%s' node configured for single node", node_ns.c_str());
     }
-
-    ImageWriterParams obj(output_path, fps, save_multi_stream_in_sequence, nh, node_ns);
-    // listen and write to video
-    ros::Subscriber sub_image = nh.subscribe<sensor_msgs::Image>(topicname_image, 100, &ImageWriterParams::imageCallback, &obj);
-
-    // // listen for stop write message
-    ros::Subscriber sub_empty = nh.subscribe<std_msgs::Empty>(topicname_empty, 1, &ImageWriterParams::emptyCallback, &obj);
-
+   
     ros::spin();
     return 0;
 }

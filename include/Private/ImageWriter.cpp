@@ -1,10 +1,5 @@
 #include "Public/ImageWriter.h"
-#include <bits/stdc++.h>
 #include <iostream>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
 
 /** Constructor.
  * 
@@ -82,7 +77,6 @@ void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg, std:
         {
             if(save_multi_stream_in_sequence_){func();}
 
-
             // Create instance setup and open video writer 
             video_writer_ = new cv::VideoWriter();
             int codec = cv::VideoWriter::fourcc('G','R','E','Y'); // set  codec
@@ -90,10 +84,10 @@ void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg, std:
 
             // check for success
             if (!video_writer_->isOpened()) {
-                std::cerr << "\n[ImageWriter] ERROR: Could not create and open the file location for writing.\n" << output_path_;
+                std::cerr << "\n[ImageWriter] ERROR: Could not create and open the file location for writing.\n" << output_path_ << std::endl;
                 return;
             } else {
-                std::cout << "\n[ImageWriter] Writing Image Stream To: " << output_path_ << std::endl;
+                std::cout << "[ImageWriter] Writing: " << output_path_ << std::endl;
             }
         }
 
@@ -147,6 +141,7 @@ void ImageWriter::updateOutputPath()
 
     // new file path
     output_path_ = path_to_file + "/" + time_stamp_prefix_ + filename;
+    std::cout << output_path_ << std::endl;
 }
 
 /** Get current time stamp. 

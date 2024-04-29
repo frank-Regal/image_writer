@@ -31,17 +31,12 @@ void ImageWriterParams::updateOutputPath() {
 
     // update output path variable with a time stamp pre-fixed to video file.
     std::string path_to_file = orig_output_path_.substr(0, slashPos);
-    std::cout << path_to_file << std::endl;
     
     // set the file name
     std::string filename {""};
     std::string filename_param {node_ns_ + "/filename"};
     if (!nh_.getParam(filename_param, filename)) {ROS_ERROR("Filename not set");}
 
-    // set file name
-    std::string postfix = ".avi";
-    std::cout << postfix << std::endl;
-
     // new file path
-    output_path_ = path_to_file + "/" + filename + postfix;
+    output_path_ = path_to_file + "/" + filename + ".avi";
 }

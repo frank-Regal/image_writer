@@ -6,6 +6,7 @@ from std_msgs.msg import Empty
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import os
+import numpy as np
 
 class VideoWriter:
     def __init__(self):
@@ -19,7 +20,13 @@ class VideoWriter:
         self.bridge = CvBridge()
 
         # Define the video writer
-        self.outvideo = cv2.VideoWriter('/project/ws_dev/src/hri_cacti_xr/image_writer/scripts/test.mp4', cv2.VideoWriter_fourcc('MP4V'), 20, (640, 480))
+        #fourcc = cv2.CV_FOURCC(*'MJPG')
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        #cv2.VideoWriter_fourcc('m','p','4','v')
+        self.outvideo = cv2.VideoWriter('/project/ws_dev/src/hri_cacti_xr/image_writer/scripts/out2.avi',  
+                        fourcc, 
+                        10, (640, 480)) 
+
 
         self.video_writer_created = False
         image_topic = rospy.get_param(self.node_ns + '/topicname_image', '/image')
@@ -47,7 +54,8 @@ class VideoWriter:
             print(f"Directory '{filepath}' already exists.")
 
         # Define the video writer
-        self.outvideo = cv2.VideoWriter(filepath + filename, cv2.VideoWriter_fourcc(*'MPEG'), fps, (h, w))
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self.outvideo = cv2.VideoWriter(filepath + filename, fourcc, fps, (h, w))
 
         self.video_writer_created = True
 
@@ -57,12 +65,19 @@ class VideoWriter:
         # if(self.video_writer_created == False):
         #     rospy.logwarn('Setting up video writer')
         #     self.setup_writer(data.height, data.width)
-        
+        if(self.outvideo == None) :
+            rospy.logwarn('Setting up the video writer')
+            self.setup_writer(ros_image.height, ros_image.width)
+
         try:
             # Convert the ROS Image message to a CV2 image
-            cv_image = self.bridge.imgmsg_to_cv2(ros_image, "mono8")
+            cv_image = self.bridge.imgmsg_to_cv2(ros_image, 'mono8')
+            blank_image = np.zeros((ros_image.height, ros_image.width, 3), dtype=np.uint8)
+            
             # Write the frame to the video file
-            self.outvideo.write(cv_image)
+            self.outvideo.write(blank_image)
+
+            rospy.loginfo("wrote a frame")
 
         except CvBridgeError as e:
             rospy.logerr(e)
