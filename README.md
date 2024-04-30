@@ -61,17 +61,4 @@ OpenCV-based ROS package to create video files from raw sensor image messages.
 3. Publish ```sensor_msgs/Image``` ROS msgs on the topic assigned to the ```topicname_image``` param in launch file.
 4. Publish a ```std_msgs/Empty``` ROS msg on the topic assigned to the ```topicname_empty``` param in the launch file to stop and reset the recorder.
     > **Info:** You can proceed to stream on the image topic again without shutting down the node. The node is setup to create videos multiple times without needing to startup and shutdown
-    
-#### Write to Files
-> _Info: for both bag and/or reatime data_
 
-- Write video streams to ```.avi``` video files.
-   1. Run launch files from [image_writer](https://github.com/frank-Regal/image_writer). See the repo for instructions.
-   2. Play bags sequentially.
-      ```shell
-       # change directory into bags
-       cd hri_cacti_xr/bags
-
-       # play continuously
-       ./.play-data.sh [DIRECTORY_TO_BAGS]
-       ```
