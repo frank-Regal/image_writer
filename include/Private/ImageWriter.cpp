@@ -87,7 +87,7 @@ void ImageWriter::writeDataToImage(const sensor_msgs::Image::ConstPtr& msg, std:
                 std::cerr << "\n[ImageWriter] ERROR: Could not create and open the file location for writing.\n" << output_path_ << std::endl;
                 return;
             } else {
-                std::cout << "[ImageWriter] Writing: " << output_path_ << std::endl;
+                std::cout << "[image_writer] opened: '" << output_path_ << "' Writing ..." << std::endl;
             }
         }
 
