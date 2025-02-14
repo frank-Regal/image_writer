@@ -1,33 +1,40 @@
-#include <string>
-#include <filesystem>
-#include <cassert>
-#include <iostream>
-#include <opencv2/highgui.hpp>
-#include <vector>
-#include <memory>
+// Standard library includes
+#include <string>        
+#include <filesystem>    
+#include <cassert>       
+#include <iostream>      
+#include <opencv2/highgui.hpp>  
+#include <vector>        
+#include <memory>        
 
-#include "Public/ImageWriter.h"
-#include "Public/ImageWriterParams.h"
-#include "hl2ss_lnm.h"
-#include "hl2ss_mt.h"
+// Project-specific includes
+#include "Public/ImageWriter.h"         
+#include "Public/ImageWriterParams.h"   
+#include "hl2ss_lnm.h"                 
+#include "hl2ss_mt.h"                  
 
+/**
+ * Structure to hold all necessary data for a single camera stream
+ */
 struct CameraStream {
-    uint16_t port;
-    std::string name;
-    std::string output_path;
-    std::unique_ptr<hl2ss::mt::source> source;
-    std::shared_ptr<cv::VideoWriter> video_writer;
-    cv::Mat mat_image;
-    cv::Mat mat_image_rotated;
-    int64_t frame_index{-1};
-    int64_t current_index{-1};
-    int rotation;
+    uint16_t port;                                    // Port number for the camera
+    std::string name;                                 // Name of the camera stream
+    std::string output_path;                          // Path where video will be saved
+    std::unique_ptr<hl2ss::mt::source> source;        // Source for receiving camera data
+    std::shared_ptr<cv::VideoWriter> video_writer;    // OpenCV video writer
+    cv::Mat mat_image;                                // Original image matrix
+    cv::Mat mat_image_rotated;                        // Rotated image matrix
+    int64_t frame_index{-1};                          // Current frame index
+    int64_t current_index{-1};                        // Last processed frame index
+    int rotation;                                     // Rotation angle for this camera
 };
 
 /**
  * Gets the rotation angle for a given camera port
- * @param port The port number of the camera
- * @return The OpenCV rotation constant for the camera
+ * @param port      The port number of the camera
+ * @return          The OpenCV rotation constant for the camera
+ * 
+ * Different cameras on the HoloLens need different rotations to appear correctly oriented
  */
 int GetRotation(uint16_t port) 
 {
@@ -46,153 +53,206 @@ int GetRotation(uint16_t port)
     }
 }
 
+/**
+ * Creates a new HoloLens camera client with standard parameters
+ * @param host      IP address of the HoloLens
+ * @param port      Port number for the specific camera
+ * @return          Unique pointer to the created client
+ */
 std::unique_ptr<hl2ss::rx_rm_vlc> create_client(const char* host, uint16_t port) {
     return hl2ss::lnm::rx_rm_vlc(host, port,
-        hl2ss::chunk_size::RM_VLC,
-        hl2ss::stream_mode::MODE_0,
-        1,
-        hl2ss::video_profile::H264_BASE,
-        hl2ss::h26x_level::H264_3,
-        2*1024*1024
+        hl2ss::chunk_size::RM_VLC,          // Standard chunk size for VLC streams
+        hl2ss::stream_mode::MODE_0,         // Video-only mode
+        1,                                  // Full framerate
+        hl2ss::video_profile::H264_BASE,    // Basic H264 profile
+        hl2ss::h26x_level::H264_3,          // H264 level 3
+        2*1024*1024                         // 2 Mbps bitrate
     );
 }
 
+/**
+ * Sets up a camera stream with all necessary components
+ * @param stream        The CameraStream structure to set up
+ * @param host          HoloLens IP address
+ * @param filepath      Base path for saving files
+ * @param filename      Name of the video file
+ * @param fps           Frames per second
+ * @param buffer_size   Size of the frame buffer
+ * @param show_streams  Whether to display video streams
+ */
 void setup_camera_stream(CameraStream& stream, const char* host, const std::string& filepath, 
-                        const std::string& filename, int fps, uint64_t buffer_size) {
+                        const std::string& filename, int fps, uint64_t buffer_size, bool show_streams) {
+    // Initialize basic stream properties
     stream.name = hl2ss::get_port_name(stream.port);
     stream.output_path = filepath + "/output/" + stream.name + "/" + filename;
     stream.rotation = GetRotation(stream.port);
     
+    // Create output directory and display window if needed
     std::filesystem::create_directories(filepath + "/output/" + stream.name + "/");
-    cv::namedWindow(stream.name);
+    if (show_streams) {
+        cv::namedWindow(stream.name);
+    }
     
+    // Set up streaming client and start it
     auto client = create_client(host, stream.port);
     stream.source = std::make_unique<hl2ss::mt::source>(buffer_size*fps, std::move(client));
     stream.source->start();
     
+    // Initialize video writer
     cv::Size frame_size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH);
     stream.video_writer = std::make_shared<cv::VideoWriter>(
         stream.output_path,
-        cv::VideoWriter::fourcc('M','J','P','G'),
+        cv::VideoWriter::fourcc('M','J','P','G'),  // MJPG codec
         fps,
         frame_size,
-        false
+        false  // Grayscale video
     );
     
+    // Check if video writer initialized successfully
     if (!stream.video_writer->isOpened()) {
         std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
         throw std::runtime_error("Failed to open video writer");
     }
     
+    // Initialize image matrix
     stream.mat_image = cv::Mat(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH, CV_8UC1);
 }
 
-void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data) {
+/**
+ * Processes a single frame from a camera stream
+ * @param stream        The camera stream to process
+ * @param data          The packet containing the frame data
+ * @param show_streams  Whether to display video streams
+ * 
+ * This function handles frame rotation, writing to video file, and display
+ */
+void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bool show_streams) {
+    // Unpack and process new frame only if we haven't seen it before
     if (stream.current_index != stream.frame_index) {
         hl2ss::map_rm_vlc region = hl2ss::unpack_rm_vlc(data->payload.get());
         stream.mat_image.data = region.image;
         cv::rotate(stream.mat_image, stream.mat_image_rotated, stream.rotation);
         stream.video_writer->write(stream.mat_image_rotated);
-        // std::cout << "Wrote Frame to video for " << stream.name << std::endl;
     }
     stream.current_index = stream.frame_index;
-    cv::imshow(stream.name, stream.mat_image_rotated);
+    if (show_streams) {
+        cv::imshow(stream.name, stream.mat_image_rotated);
+    }
 }
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "save_image_stream_hl2ss");
+    // Initialize ROS node
+    ros::init(argc, argv, "save_image_stream_hl2ss_mt");
     ros::NodeHandle nh;
 
+    // Initialize parameters with default values
     std::string filepath {ros::package::getPath("image_writer")};
     std::string filename {"video.mp4"};
     bool save_multi_stream_in_sequence {false};
     bool use_param_server {false};
+    bool show_streams {true};  // New parameter to control stream display
     int fps {hl2ss::parameters_rm_vlc::FPS};
     std::string device_id {""};
     
     std::string node_ns = nh.getNamespace();
 
+    // Load parameters from ROS parameter server
     nh.param<std::string>("filepath", filepath, filepath);
     nh.param<std::string>("filename", filename, filename);
     nh.param<bool>("save_multi_stream_in_sequence", save_multi_stream_in_sequence, save_multi_stream_in_sequence);
     nh.param<bool>("use_param_server", use_param_server, use_param_server);
+    nh.param<bool>("show_streams", show_streams, show_streams);  // Load show_streams parameter
     nh.param<int>("fps", fps, fps);
 
+    // Initialize image writer objects
     ImageWriterParams image_writer_params(filepath, fps, save_multi_stream_in_sequence, nh, node_ns);
     ImageWriter image_writer(filepath, fps, save_multi_stream_in_sequence);
 
+    // Initialize HoloLens client
     hl2ss::client::initialize();
-    const char* host {"192.168.50.33"};
+    const char* host {"192.168.50.33"};  // HoloLens IP address
     uint64_t buffer_size = 10;
 
+    // Vector to hold all camera streams
     std::vector<CameraStream> streams;
     
-    // Initialize all camera streams
+    // Initialize individual camera streams
     CameraStream lf_stream{hl2ss::stream_port::RM_VLC_LEFTFRONT};
     CameraStream rf_stream{hl2ss::stream_port::RM_VLC_RIGHTFRONT};
     CameraStream ll_stream{hl2ss::stream_port::RM_VLC_LEFTLEFT};
     CameraStream rr_stream{hl2ss::stream_port::RM_VLC_RIGHTRIGHT};
-    setup_camera_stream(lf_stream, host, filepath, filename, fps, buffer_size);
-    setup_camera_stream(rf_stream, host, filepath, filename, fps, buffer_size);
-    setup_camera_stream(ll_stream, host, filepath, filename, fps, buffer_size);
-    setup_camera_stream(rr_stream, host, filepath, filename, fps, buffer_size);
+    
+    // Set up each camera stream
+    setup_camera_stream(lf_stream, host, filepath, filename, fps, buffer_size, show_streams);
+    setup_camera_stream(rf_stream, host, filepath, filename, fps, buffer_size, show_streams);
+    setup_camera_stream(ll_stream, host, filepath, filename, fps, buffer_size, show_streams);
+    setup_camera_stream(rr_stream, host, filepath, filename, fps, buffer_size, show_streams);
+    
+    // Add streams to vector
     streams.push_back(std::move(lf_stream));
     streams.push_back(std::move(rf_stream));
     streams.push_back(std::move(ll_stream));
     streams.push_back(std::move(rr_stream));
 
+    // Start ROS spinner for asynchronous callbacks
     ros::AsyncSpinner spinner(1);
     spinner.start();
 
+    // Main processing loop
     while (ros::ok()) {
         int wait_key_ms = 1;
         std::exception error;
 
-        // Check all stream statuses
+        // Check health of all streams
         for (auto& stream : streams) {
             if (!stream.source->status(error)) { throw error; }
             stream.frame_index = -1;
         }
 
         int32_t status;
-        auto& primary_stream = streams[0]; // Use first stream as primary
+        auto& primary_stream = streams[0];  // First stream is primary
 
+        // Get frame from primary stream
         std::shared_ptr<hl2ss::packet> primary_data = primary_stream.source->get_packet(primary_stream.frame_index, status);
 
         if (status < 0) {
-             // Requested frame is too old and has been dropped from the buffer (data_pv is null)
+            // Frame too old, dropped from buffer
         }
         else if (status == 0) {
-            process_frame(primary_stream, primary_data);
-            if ((cv::waitKey(1) & 0xFF) == 27) { break; }
+            // Process primary stream
+            process_frame(primary_stream, primary_data, show_streams);
+            if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }  // Exit on ESC key
 
-            // Process other streams
+            // Process secondary streams
             for (size_t i = 1; i < streams.size(); i++) {
                 auto& stream = streams[i];
                 int32_t search_mode = hl2ss::mt::time_preference::PREFER_NEAREST;
                 bool tiebreak_right = false;
                 stream.frame_index = -1;
 
+                // Get temporally matching frame from secondary stream
                 std::shared_ptr<hl2ss::packet> data = stream.source->get_packet(
                     primary_data->timestamp, search_mode, tiebreak_right, stream.frame_index, status);
 
                 if (data) {
-                    process_frame(stream, data);
-                    if ((cv::waitKey(1) & 0xFF) == 27) { break; }
+                    process_frame(stream, data, show_streams);
+                    if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }
                 }
             }
         }
         else {
-            wait_key_ms = 1000 / fps;
+            wait_key_ms = 1000 / fps;  // Adjust wait time based on FPS
         }
     }
 
-    // Cleanup
+    // Cleanup resources
     for (auto& stream : streams) {
         stream.video_writer->release();
         stream.source->stop();
     }
-    cv::destroyAllWindows();
+    if (show_streams) {
+        cv::destroyAllWindows();
+    }
 
     return 0;
 }
