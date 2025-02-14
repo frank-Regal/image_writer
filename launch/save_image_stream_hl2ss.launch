@@ -1,0 +1,24 @@
+<launch>
+    <!-- capture input args -->
+    <arg name="outdir"          default="$(find image_writer)/output/"/>
+    <arg name="name"            default="ros_image_stream" /> <!-- if empty, node will create a name with timestamp -->
+    <arg name="process_seq"     default='true'/>
+    <arg name="use_param_server" default='false'/>
+    <arg name="image_fps"       default='30'/>
+
+    <!-- set params -->
+    <param name="filepath"          value="$(arg outdir)"/>
+    <param name="filename"          value="$(arg name)"/>
+    <param name="fps"               value="$(arg image_fps)"/>
+    <param name="save_multi_stream_in_sequence" value="$(arg process_seq)"/>
+    <param name="use_param_server"  value="$(arg use_param_server)"/>"
+
+    <!--launch node-->
+    <node 
+        name="save_image_stream_hl2ss" 
+        pkg="image_writer" 
+        type="save_image_stream_hl2ss" 
+        output="screen"
+    />
+
+</launch>

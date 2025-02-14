@@ -52,9 +52,9 @@ target_link_libraries(ImageWriterParams ImageWriter ${catkin_LIBRARIES} ${OpenCV
 
 add_library(hl2ss_lib
   # third_party/hl2ss/extensions/client_cpp/main.cpp
-  third_party/hl2ss/extensions/client_cpp/hl2ss.h
-  third_party/hl2ss/extensions/client_cpp/hl2ss_lnm.h
-  third_party/hl2ss/extensions/client_cpp/hl2ss_mt.h
+  third_party/hl2ss/extensions/client_cpp/hl2ss.cpp
+  third_party/hl2ss/extensions/client_cpp/hl2ss_lnm.cpp
+  third_party/hl2ss/extensions/client_cpp/hl2ss_mt.cpp
   ${ZDEPTH_SOURCES}
 )
 target_link_libraries(hl2ss_lib
@@ -74,6 +74,16 @@ target_link_libraries(save_raw_image_stream ${catkin_LIBRARIES} ${OpenCV_LIBS} I
 add_executable(save_image_stream_hl2ss
   src/save_image_stream_hl2ss.cpp)
 target_link_libraries(save_image_stream_hl2ss
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+  ImageWriter
+  ImageWriterParams
+  hl2ss_lib
+)
+
+add_executable(save_image_stream_hl2ss_mt
+  src/save_image_stream_hl2ss_mt.cpp)
+target_link_libraries(save_image_stream_hl2ss_mt
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   ImageWriter
