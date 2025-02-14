@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+add_definitions(-DHL2SS_ENABLE_ZDEPTH)
+
 find_package(catkin REQUIRED COMPONENTS
   roslib
   cv_bridge
@@ -21,12 +23,23 @@ catkin_package(
 
 ## Find other required packages
 find_package(OpenCV REQUIRED)
+find_package(Threads REQUIRED)
 
 # Include directories
 include_directories(
   include
+  third_party/hl2ss/extensions/client_cpp
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  third_party/hl2ss/3rdparty/Zdepth/include
+  third_party/hl2ss/3rdparty/Zdepth/zstd/include
+  third_party/hl2ss/3rdparty/Zdepth/zstd/src
+)
+
+# Collect Zdepth source files
+file(GLOB ZDEPTH_SOURCES
+    "third_party/hl2ss/3rdparty/Zdepth/src/*.cpp"
+    "third_party/hl2ss/3rdparty/Zdepth/zstd/src/*.c"
 )
 
 ## Declare C++ libraries
@@ -37,9 +50,52 @@ target_link_libraries(ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
 add_library(ImageWriterParams include/Private/ImageWriterParams.cpp)
 target_link_libraries(ImageWriterParams ImageWriter ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
+add_library(hl2ss_lib
+  # third_party/hl2ss/extensions/client_cpp/main.cpp
+  third_party/hl2ss/extensions/client_cpp/hl2ss.h
+  third_party/hl2ss/extensions/client_cpp/hl2ss_lnm.h
+  third_party/hl2ss/extensions/client_cpp/hl2ss_mt.h
+  ${ZDEPTH_SOURCES}
+)
+target_link_libraries(hl2ss_lib
+  ${OpenCV_LIBS}
+  avcodec
+  avutil
+  pthread
+)
+
+# Add before your add_executable commands
+target_link_directories(hl2ss_lib PRIVATE /usr/local/lib)
+
 ## Declare ROS executable
 add_executable(save_raw_image_stream src/save_raw_image_stream.cpp)
 target_link_libraries(save_raw_image_stream ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams)
+
+add_executable(save_image_stream_hl2ss
+  src/save_image_stream_hl2ss.cpp)
+target_link_libraries(save_image_stream_hl2ss
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+  ImageWriter
+  ImageWriterParams
+  hl2ss_lib
+)
+
+target_compile_options(ImageWriter PRIVATE -O3)
+target_compile_options(ImageWriterParams PRIVATE -O3)
+target_compile_options(hl2ss_lib PRIVATE -O3)
+
+target_compile_options(save_raw_image_stream PRIVATE
+    -O3
+    -fdiagnostics-color=always
+    -g
+)
+
+target_compile_options(save_image_stream_hl2ss PRIVATE
+    -O3
+    -fdiagnostics-color=always
+    -g
+)
 
 ## Declare python nodes
 catkin_install_python(PROGRAMS scripts/rosbag_manip.py scripts/video_writer.py
