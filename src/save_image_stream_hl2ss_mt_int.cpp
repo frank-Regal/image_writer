@@ -11,7 +11,9 @@
 #include "Public/ImageWriter.h"         
 #include "Public/ImageWriterParams.h"   
 #include "hl2ss_lnm.h"                 
-#include "hl2ss_mt.h"                  
+#include "hl2ss_mt.h"      
+#include "ros/ros.h"
+#include "std_msgs/Empty.h"
 
 /**
  * Structure to hold all necessary data for a single camera stream
@@ -28,6 +30,38 @@ struct CameraStream {
     int64_t current_index{-1};                        // Last processed frame index
     int rotation;                                     // Rotation angle for this camera
 };
+
+
+/**
+ * Class to handle starting and stopping recording of image streams
+ */
+class SaveImageStreamListener {
+
+public:
+    SaveImageStreamListener(ros::NodeHandle& nh) : nh_(nh) 
+    {
+        std::cout << "SaveImageStreamListener initialized" << std::endl;
+    };
+
+    void StartRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
+        record_ = true;
+        std::cout << "Recording started" << std::endl;
+    }
+
+    void StopRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
+        record_ = false;
+        std::cout << "Recording stopped" << std::endl;
+    }
+
+    bool GetRecordingStatus() {
+        return record_;
+    }
+    
+private:
+    ros::NodeHandle nh_;
+    bool record_ {false};
+};
+
 
 /**
  * Gets the rotation angle for a given camera port
@@ -64,8 +98,8 @@ std::unique_ptr<hl2ss::rx_rm_vlc> create_client(const char* host, uint16_t port)
         hl2ss::chunk_size::RM_VLC,          // Standard chunk size for VLC streams
         hl2ss::stream_mode::MODE_0,         // Video-only mode
         1,                                  // Full framerate
-        hl2ss::video_profile::H264_BASE,    // Basic H264 profile
-        hl2ss::h26x_level::H264_3,          // H264 level 3
+        hl2ss::video_profile::H265_MAIN,    // Basic H264 profile
+        hl2ss::h26x_level::DEFAULT,          // H264 level 3
         2*1024*1024                         // 2 Mbps bitrate
     );
 }
@@ -99,20 +133,22 @@ void setup_camera_stream(CameraStream& stream, const char* host, const std::stri
     stream.source->start();
     
     // Initialize video writer
-    cv::Size frame_size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH);
-    stream.video_writer = std::make_shared<cv::VideoWriter>(
-        stream.output_path,
-        cv::VideoWriter::fourcc('M','J','P','G'),  // MJPG codec
-        fps,
-        frame_size,
-        false  // Grayscale video
-    );
-    
+    // cv::Size frame_size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH);
+    // stream.video_writer = std::make_shared<cv::VideoWriter>(
+    //     stream.output_path,
+    //     cv::VideoWriter::fourcc('M','J','P','G'),  // MJPG codec
+    //     fps,
+    //     frame_size,
+    //     false  // Grayscale video
+    // );
+
     // Check if video writer initialized successfully
-    if (!stream.video_writer->isOpened()) {
-        std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
-        throw std::runtime_error("Failed to open video writer");
-    }
+    // if (!stream.video_writer->isOpened()) {
+    //     std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
+    //     throw std::runtime_error("Failed to open video writer");
+    // }
+
+    stream.video_writer = std::make_shared<cv::VideoWriter>();
     
     // Initialize image matrix
     stream.mat_image = cv::Mat(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH, CV_8UC1);
@@ -132,7 +168,11 @@ void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bo
         hl2ss::map_rm_vlc region = hl2ss::unpack_rm_vlc(data->payload.get());
         stream.mat_image.data = region.image;
         cv::rotate(stream.mat_image, stream.mat_image_rotated, stream.rotation);
-        stream.video_writer->write(stream.mat_image_rotated);
+        std::cout << "Rotated image size: " << stream.mat_image_rotated.size() << std::endl;
+        if (stream.video_writer->isOpened()) {
+            stream.video_writer->write(stream.mat_image_rotated);
+            std::cout << "Wrote frame to " << stream.name << " video writer" << std::endl;
+        }
     }
     stream.current_index = stream.frame_index;
     if (show_streams) {
@@ -140,17 +180,20 @@ void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bo
     }
 }
 
-bool startRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
-    return true;
+void create_new_video_writer(CameraStream& stream, int fps) {
+    stream.video_writer->open(stream.output_path, cv::VideoWriter::fourcc('M','J','P','G'), fps, cv::Size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH), false);
+    if (!stream.video_writer->isOpened()) {
+        std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
+        throw std::runtime_error("Failed to open video writer");
+    } else {
+        std::cout << "Opened " << stream.name << " video writer" << std::endl;
+    }
 }
 
-bool stopRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
-    return true;
-}
 
 int main(int argc, char** argv) {
     // Initialize ROS node
-    ros::init(argc, argv, "save_image_stream_hl2ss_mt");
+    ros::init(argc, argv, "save_image_stream_hl2ss_mt_int");
     ros::NodeHandle nh;
 
     // Initialize parameters with default values
@@ -202,9 +245,16 @@ int main(int argc, char** argv) {
     streams.push_back(std::move(ll_stream));
     streams.push_back(std::move(rr_stream));
 
+    // Initialize recording listener
+    SaveImageStreamListener RecordingListener(nh);
+    ros::Subscriber start_sub = nh.subscribe<std_msgs::Empty>("/hri_cacti/dataset_capture/start", 1, &SaveImageStreamListener::StartRecordingCallback, &RecordingListener);
+    ros::Subscriber stop_sub = nh.subscribe<std_msgs::Empty>("/hri_cacti/dataset_capture/stop", 1, &SaveImageStreamListener::StopRecordingCallback, &RecordingListener);
+
     // Start ROS spinner for asynchronous callbacks
     ros::AsyncSpinner spinner(1);
     spinner.start();
+
+    bool recording = false;
 
     // Main processing loop
     while (ros::ok()) {
@@ -213,43 +263,58 @@ int main(int argc, char** argv) {
 
         // Check health of all streams
         for (auto& stream : streams) {
-            if (!stream.source->status(error)) { throw error; }
+            if (!stream.source->status(error)) {
+                std::cout << "Error: Stream " << stream.name << " is not healthy" << std::endl;
+                throw error; 
+            }
             stream.frame_index = -1;
         }
 
-        int32_t status;
-        auto& primary_stream = streams[0];  // First stream is primary
+        if (RecordingListener.GetRecordingStatus()) {
 
-        // Get frame from primary stream
-        std::shared_ptr<hl2ss::packet> primary_data = primary_stream.source->get_packet(primary_stream.frame_index, status);
-
-        if (status < 0) {
-            // Frame too old, dropped from buffer
-        }
-        else if (status == 0) {
-            // Process primary stream
-            process_frame(primary_stream, primary_data, show_streams);
-            if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }  // Exit on ESC key
-
-            // Process secondary streams
-            for (size_t i = 1; i < streams.size(); i++) {
-                auto& stream = streams[i];
-                int32_t search_mode = hl2ss::mt::time_preference::PREFER_NEAREST;
-                bool tiebreak_right = false;
-                stream.frame_index = -1;
-
-                // Get temporally matching frame from secondary stream
-                std::shared_ptr<hl2ss::packet> data = stream.source->get_packet(
-                    primary_data->timestamp, search_mode, tiebreak_right, stream.frame_index, status);
-
-                if (data) {
-                    process_frame(stream, data, show_streams);
-                    if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }
+            if (!recording) {
+                for (auto& stream : streams) {
+                    create_new_video_writer(stream, fps);
                 }
+                recording = true;
+            }
+
+            int32_t status;
+            auto& primary_stream = streams[0];  // First stream is primary
+
+            // Get frame from primary stream
+            std::shared_ptr<hl2ss::packet> primary_data = primary_stream.source->get_packet(primary_stream.frame_index, status);
+
+            if (status < 0) {
+                // Frame too old, dropped from buffer
+            }
+            else if (status == 0) {
+                process_frame(primary_stream, primary_data, show_streams);
+                if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }  // Exit on ESC key
+                // Process secondary streams
+                for (size_t i = 1; i < streams.size(); i++) {
+                    auto& stream = streams[i];
+                    int32_t search_mode = hl2ss::mt::time_preference::PREFER_NEAREST;
+                    bool tiebreak_right = false;
+                    stream.frame_index = -1;
+                    // Get temporally matching frame from secondary stream
+                    std::shared_ptr<hl2ss::packet> data = stream.source->get_packet(
+                        primary_data->timestamp, search_mode, tiebreak_right, stream.frame_index, status);
+                    if (data) {
+                        process_frame(stream, data, show_streams);
+                        if (show_streams && (cv::waitKey(1) & 0xFF) == 27) { break; }
+                    }
+                }
+            }
+            else {
+                wait_key_ms = 1000 / fps;  // Adjust wait time based on FPS
             }
         }
         else {
-            wait_key_ms = 1000 / fps;  // Adjust wait time based on FPS
+            recording = false;
+            for (auto& stream : streams) {
+                stream.video_writer->release();
+            }
         }
     }
 

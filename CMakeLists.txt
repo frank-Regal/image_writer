@@ -71,25 +71,17 @@ target_link_directories(hl2ss_lib PRIVATE /usr/local/lib)
 add_executable(save_raw_image_stream src/save_raw_image_stream.cpp)
 target_link_libraries(save_raw_image_stream ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams)
 
-add_executable(save_image_stream_hl2ss
-  src/save_image_stream_hl2ss.cpp)
-target_link_libraries(save_image_stream_hl2ss
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}
-  ImageWriter
-  ImageWriterParams
-  hl2ss_lib
-)
+add_executable(save_image_stream_hl2ss src/save_image_stream_hl2ss.cpp)
+target_link_libraries(save_image_stream_hl2ss ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams hl2ss_lib)
 
-add_executable(save_image_stream_hl2ss_mt
-  src/save_image_stream_hl2ss_mt.cpp)
-target_link_libraries(save_image_stream_hl2ss_mt
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}
-  ImageWriter
-  ImageWriterParams
-  hl2ss_lib
-)
+add_executable(save_image_stream_hl2ss_mt src/save_image_stream_hl2ss_mt.cpp)
+target_link_libraries(save_image_stream_hl2ss_mt ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams hl2ss_lib)
+
+add_executable(save_image_stream_hl2ss_mt_interactive src/save_image_stream_hl2ss_mt_interactive.cpp)
+target_link_libraries(save_image_stream_hl2ss_mt_interactive ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams hl2ss_lib)
+
+add_executable(save_image_stream_hl2ss_mt_int src/save_image_stream_hl2ss_mt_int.cpp)
+target_link_libraries(save_image_stream_hl2ss_mt_int ${catkin_LIBRARIES} ${OpenCV_LIBS} ImageWriter ImageWriterParams hl2ss_lib)
 
 target_compile_options(ImageWriter PRIVATE -O3)
 target_compile_options(ImageWriterParams PRIVATE -O3)
@@ -102,6 +94,18 @@ target_compile_options(save_raw_image_stream PRIVATE
 )
 
 target_compile_options(save_image_stream_hl2ss PRIVATE
+    -O3
+    -fdiagnostics-color=always
+    -g
+)
+
+target_compile_options(save_image_stream_hl2ss_mt PRIVATE
+    -O3
+    -fdiagnostics-color=always
+    -g
+)
+
+target_compile_options(save_image_stream_hl2ss_mt_interactive PRIVATE
     -O3
     -fdiagnostics-color=always
     -g

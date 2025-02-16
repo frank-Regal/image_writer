@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     hl2ss::client::initialize();
 
     // init hl2ss (TODO: make this a parameter)
-    char const* host {"192.168.50.33"};
+    char const* host {"192.168.0.22"};
     const uint16_t port {hl2ss::stream_port::RM_VLC_LEFTFRONT};
 
     // Create client
@@ -53,8 +53,8 @@ int main(int argc, char** argv) {
         hl2ss::chunk_size::RM_VLC,        // chunk size
         hl2ss::stream_mode::MODE_0,       // Streaming mode (Video Only)
         1,                                // divisor (1 = full framerate - 30 FPS) 
-        hl2ss::video_profile::H264_BASE,  // Video encoding profile
-        hl2ss::h26x_level::H264_3,        // H.264 Level 3.0
+        hl2ss::video_profile::H265_MAIN,  // Video encoding profile
+        hl2ss::h26x_level::DEFAULT,        // H.264 Level 3.0
         2*1024*1024                       // bitrate (2 Mbps)
     );
 
