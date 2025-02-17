@@ -1,74 +1,86 @@
-// Standard library includes
-#include <string>        
-#include <filesystem>    
-#include <cassert>       
-#include <iostream>      
-#include <opencv2/highgui.hpp>  
-#include <vector>        
-#include <memory>        
+//------------------------------------------------------------------------------
+// Standard library includes for basic functionality
+//------------------------------------------------------------------------------
+#include <string>        // For string handling
+#include <filesystem>    // For filesystem operations
+#include <cassert>       // For assertions
+#include <iostream>      // For console I/O
+#include <opencv2/highgui.hpp>  // For OpenCV GUI functionality
+#include <vector>        // For dynamic arrays
+#include <memory>        // For smart pointers
 
+//------------------------------------------------------------------------------
 // Project-specific includes
-#include "Public/ImageWriter.h"         
-#include "Public/ImageWriterParams.h"   
-#include "hl2ss_lnm.h"                 
-#include "hl2ss_mt.h"      
-#include "ros/ros.h"
-#include "std_msgs/Empty.h"
+//------------------------------------------------------------------------------
+#include "Public/ImageWriter.h"         // Custom image writing functionality
+#include "Public/ImageWriterParams.h"   // Parameters for image writing
+#include "hl2ss_lnm.h"                 // HoloLens streaming low-level networking
+#include "hl2ss_mt.h"                  // HoloLens streaming multi-threading
+#include "ros/ros.h"                   // ROS core functionality
+#include "std_msgs/Empty.h"            // ROS empty message type
 
 /**
- * Structure to hold all necessary data for a single camera stream
+ * Structure to hold all necessary data for a single camera stream from the HoloLens
+ * This encapsulates all the components needed to receive, process, and save video
+ * from a single camera on the HoloLens device.
  */
 struct CameraStream {
-    uint16_t port;                                    // Port number for the camera
-    std::string name;                                 // Name of the camera stream
-    std::string output_path;                          // Path where video will be saved
-    std::unique_ptr<hl2ss::mt::source> source;        // Source for receiving camera data
-    std::shared_ptr<cv::VideoWriter> video_writer;    // OpenCV video writer
-    cv::Mat mat_image;                                // Original image matrix
-    cv::Mat mat_image_rotated;                        // Rotated image matrix
-    int64_t frame_index{-1};                          // Current frame index
-    int64_t current_index{-1};                        // Last processed frame index
-    int rotation;                                     // Rotation angle for this camera
+    uint16_t port;                                    // Network port number for the specific camera
+    std::string name;                                 // Human-readable name of the camera stream
+    std::string output_path;                          // Full path where video file will be saved
+    std::unique_ptr<hl2ss::mt::source> source;        // Thread-safe source for receiving camera data
+    std::shared_ptr<cv::VideoWriter> video_writer;    // OpenCV writer for saving video to disk
+    cv::Mat mat_image;                                // Original unprocessed image matrix
+    cv::Mat mat_image_rotated;                        // Image matrix after rotation correction
+    int64_t frame_index{-1};                          // Index of current frame being processed
+    int64_t current_index{-1};                        // Index of last successfully processed frame
+    int rotation;                                     // Required rotation angle for this camera
 };
 
 
 /**
- * Class to handle starting and stopping recording of image streams
+ * Class to handle ROS callbacks for starting and stopping video recording
+ * Provides a thread-safe interface for controlling recording state through ROS messages
  */
 class SaveImageStreamListener {
 
 public:
+    // Constructor initializes ROS node handle and prints status
     SaveImageStreamListener(ros::NodeHandle& nh) : nh_(nh) 
     {
         std::cout << "SaveImageStreamListener initialized" << std::endl;
     };
 
+    // Callback triggered when start recording message is received
     void StartRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
         record_ = true;
         std::cout << "Recording started" << std::endl;
     }
 
+    // Callback triggered when stop recording message is received
     void StopRecordingCallback(const std_msgs::Empty::ConstPtr& msg) {
         record_ = false;
         std::cout << "Recording stopped" << std::endl;
     }
 
+    // Thread-safe getter for current recording state
     bool GetRecordingStatus() {
         return record_;
     }
     
 private:
-    ros::NodeHandle nh_;
-    bool record_ {false};
+    ros::NodeHandle nh_;          // ROS node handle for communication
+    bool record_ {false};         // Current recording state
 };
 
 
 /**
- * Gets the rotation angle for a given camera port
- * @param port      The port number of the camera
- * @return          The OpenCV rotation constant for the camera
+ * Determines the correct rotation angle for a given HoloLens camera
+ * Different cameras on the HoloLens are mounted at different orientations
+ * and need to be rotated to appear correctly in saved videos
  * 
- * Different cameras on the HoloLens need different rotations to appear correctly oriented
+ * @param port      The port number identifying the specific camera
+ * @return          OpenCV rotation constant for the camera
  */
 int GetRotation(uint16_t port) 
 {
@@ -88,31 +100,35 @@ int GetRotation(uint16_t port)
 }
 
 /**
- * Creates a new HoloLens camera client with standard parameters
- * @param host      IP address of the HoloLens
+ * Creates a new HoloLens camera client with standardized streaming parameters
+ * Configures video quality, framerate, and networking parameters for reliable streaming
+ * 
+ * @param host      IP address of the HoloLens device
  * @param port      Port number for the specific camera
- * @return          Unique pointer to the created client
+ * @return          Unique pointer to the configured streaming client
  */
 std::unique_ptr<hl2ss::rx_rm_vlc> create_client(const char* host, uint16_t port) {
     return hl2ss::lnm::rx_rm_vlc(host, port,
         hl2ss::chunk_size::RM_VLC,          // Standard chunk size for VLC streams
         hl2ss::stream_mode::MODE_0,         // Video-only mode
         1,                                  // Full framerate
-        hl2ss::video_profile::H265_MAIN,    // Basic H264 profile
-        hl2ss::h26x_level::DEFAULT,          // H264 level 3
-        2*1024*1024                         // 2 Mbps bitrate
+        hl2ss::video_profile::H265_MAIN,    // Basic H264 profile for good compatibility
+        hl2ss::h26x_level::DEFAULT          // H264 level 3 for decent quality
     );
 }
 
 /**
- * Sets up a camera stream with all necessary components
- * @param stream        The CameraStream structure to set up
+ * Initializes all components of a camera stream
+ * Creates necessary directories, sets up display windows, initializes video writer,
+ * and configures streaming client
+ * 
+ * @param stream        Reference to CameraStream structure to initialize
  * @param host          HoloLens IP address
- * @param filepath      Base path for saving files
- * @param filename      Name of the video file
- * @param fps           Frames per second
- * @param buffer_size   Size of the frame buffer
- * @param show_streams  Whether to display video streams
+ * @param filepath      Base path for saving video files
+ * @param filename      Base name for video files
+ * @param fps           Desired frames per second
+ * @param buffer_size   Size of frame buffer for streaming
+ * @param show_streams  Whether to display video streams in windows
  */
 void setup_camera_stream(CameraStream& stream, const char* host, const std::string& filepath, 
                         const std::string& filename, int fps, uint64_t buffer_size, bool show_streams) {
@@ -129,27 +145,28 @@ void setup_camera_stream(CameraStream& stream, const char* host, const std::stri
     // Create a video writer object for this stream
     stream.video_writer = std::make_shared<cv::VideoWriter>();
     
-    // Initialize image matrix
+    // Initialize image matrix with correct dimensions
     stream.mat_image = cv::Mat(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH, CV_8UC1);
     
-    // Set up streaming client and start it
+    // Set up streaming client and prepare it
     auto client = create_client(host, stream.port);
     stream.source = std::make_unique<hl2ss::mt::source>(buffer_size*fps, std::move(client));
-    // stream.source->start();
+    // stream.source->start();  // Starting is deferred until recording begins
 
     std::cout << "Stream '" << stream.name << "' setup." << std::endl;
 }
 
 /**
  * Processes a single frame from a camera stream
- * @param stream        The camera stream to process
- * @param data          The packet containing the frame data
- * @param show_streams  Whether to display video streams
+ * Handles frame unpacking, rotation, writing to video file, and display
+ * Only processes each unique frame once to avoid duplicates
  * 
- * This function handles frame rotation, writing to video file, and display
+ * @param stream        Reference to camera stream to process
+ * @param data          Packet containing the frame data
+ * @param show_streams  Whether to display video streams
  */
 void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bool show_streams) {
-    // Unpack and process new frame only if we haven't seen it before
+    // Only process new frames we haven't seen before
     if (stream.current_index != stream.frame_index) {
         hl2ss::map_rm_vlc region = hl2ss::unpack_rm_vlc(data->payload.get());
         stream.mat_image.data = region.image;
@@ -164,8 +181,16 @@ void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bo
     }
 }
 
+/**
+ * Creates and initializes a new video writer for a camera stream
+ * Configures video format, codec, and dimensions
+ * 
+ * @param stream    Reference to camera stream needing new video writer
+ * @param fps       Frames per second for the video
+ * @throws std::runtime_error if video writer fails to open
+ */
 void create_new_video_writer(CameraStream& stream, int fps) {
-    stream.video_writer->open(stream.output_path, cv::VideoWriter::fourcc('M','J','P','G'), fps, cv::Size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH), false);
+    stream.video_writer->open(stream.output_path, cv::VideoWriter::fourcc('m','p','4','v'), fps, cv::Size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH), false);
     if (!stream.video_writer->isOpened()) {
         std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
         throw std::runtime_error("Failed to open video writer");
@@ -174,6 +199,14 @@ void create_new_video_writer(CameraStream& stream, int fps) {
     }
 }
 
+/**
+ * Generates a filename with current timestamp
+ * Creates a unique filename by combining base name with current date and time
+ * 
+ * @param base     Base filename
+ * @param ext      File extension (including dot)
+ * @return         Complete filename with timestamp
+ */
 std::string getTimestampedFilename(const std::string& base, const std::string& ext) {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
@@ -183,6 +216,14 @@ std::string getTimestampedFilename(const std::string& base, const std::string& e
 }
 
 
+/**
+ * Main entry point for the HoloLens video streaming and recording application
+ * Initializes ROS node, sets up camera streams, and manages recording lifecycle
+ * 
+ * @param argc     Command line argument count
+ * @param argv     Command line argument values
+ * @return         0 on successful execution, non-zero on error
+ */
 int main(int argc, char** argv) {
     // Initialize ROS node
     ros::init(argc, argv, "save_image_stream_hl2ss_mt_int");
@@ -212,7 +253,7 @@ int main(int argc, char** argv) {
     ImageWriter image_writer(filepath, fps, save_multi_stream_in_sequence);
 
     // Initialize HoloLens client
-    hl2ss::client::initialize();
+    // hl2ss::client::initialize();
     const char* host {"192.168.0.22"};  // HoloLens IP address
     uint64_t buffer_size = 10;
 
@@ -277,6 +318,7 @@ int main(int argc, char** argv) {
                     }
                     stream.source->stop();
                     std::cout << "Stream " << stream.name << " stopped" << std::endl;
+                    // hl2ss::client::close();
                     return 0;
                     // throw error; 
                 }
@@ -320,7 +362,6 @@ int main(int argc, char** argv) {
                 stream.source->stop();
                 stream.video_writer->release();
             }
-            
         }
     }
 
@@ -334,6 +375,8 @@ int main(int argc, char** argv) {
     if (show_streams) {
         cv::destroyAllWindows();
     }
+
+    // hl2ss::client::close();
 
     return 0;
 }
