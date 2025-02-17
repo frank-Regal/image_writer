@@ -27,6 +27,7 @@
 struct CameraStream {
     uint16_t port;                                    // Network port number for the specific camera
     std::string name;                                 // Human-readable name of the camera stream
+    std::string base_path;                            // Base path for saving video files
     std::string output_path;                          // Full path where video file will be saved
     std::unique_ptr<hl2ss::mt::source> source;        // Thread-safe source for receiving camera data
     std::shared_ptr<cv::VideoWriter> video_writer;    // OpenCV writer for saving video to disk
@@ -130,14 +131,19 @@ std::unique_ptr<hl2ss::rx_rm_vlc> create_client(const char* host, uint16_t port)
  * @param buffer_size   Size of frame buffer for streaming
  * @param show_streams  Whether to display video streams in windows
  */
-void setup_camera_stream(CameraStream& stream, const char* host, const std::string& filepath, 
-                        const std::string& filename, int fps, uint64_t buffer_size, bool show_streams) {
-    // Initialize basic stream properties
-    stream.name = hl2ss::get_port_name(stream.port);
+void setup_camera_stream(CameraStream& stream, 
+                        const char* host, 
+                        const std::string& stream_name, 
+                        const int fps, 
+                        const uint64_t buffer_size, 
+                        const bool& show_streams) {
+    
+    // Set the stream name if provided, otherwise use the port name
+    stream.name = (!stream_name.empty()) ? stream_name : hl2ss::get_port_name(stream.port);
+
+    // Get the rotation angle for the stream (this is camera dependent and flips the image to be correct)
     stream.rotation = GetRotation(stream.port);
     
-    // Create output directory and display window if needed
-    std::filesystem::create_directories(filepath + "/output/" + stream.name + "/");
     if (show_streams) {
         cv::namedWindow(stream.name);
     }
@@ -230,54 +236,55 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     // Initialize parameters with default values
-    std::string filepath {ros::package::getPath("image_writer")};
-    std::string filename {"video"};
-    bool save_multi_stream_in_sequence {false};
+    std::string base_filepath {ros::package::getPath("image_writer")};
+    std::string subdir_filepath {"output/advance"};
+    std::string base_filename {"video"};
+    std::string hololens_ip {"192.168.0.22"};
+    std::string sensor_id {""};
     bool use_param_server {false};
     bool show_streams {true};  // New parameter to control stream display
     int fps {hl2ss::parameters_rm_vlc::FPS};
-    std::string device_id {""};
+    
     
     std::string node_ns = nh.getNamespace();
 
     // Load parameters from ROS parameter server
-    nh.param<std::string>("filepath", filepath, filepath);
-    nh.param<std::string>("filename", filename, filename);
-    nh.param<bool>("save_multi_stream_in_sequence", save_multi_stream_in_sequence, save_multi_stream_in_sequence);
+    nh.param<std::string>("base_filepath", base_filepath, base_filepath);
+    nh.param<std::string>("base_filename", base_filename, base_filename);
+    nh.param<std::string>("hololens_ip", hololens_ip, hololens_ip);
+    nh.param<std::string>("sensor_id", sensor_id, sensor_id);
     nh.param<bool>("use_param_server", use_param_server, use_param_server);
     nh.param<bool>("show_streams", show_streams, show_streams);  // Load show_streams parameter
-    nh.param<int>("fps", fps, fps);
-
-    // Initialize image writer objects
-    ImageWriterParams image_writer_params(filepath, fps, save_multi_stream_in_sequence, nh, node_ns);
-    ImageWriter image_writer(filepath, fps, save_multi_stream_in_sequence);
 
     // Initialize HoloLens client
     // hl2ss::client::initialize();
-    const char* host {"192.168.0.22"};  // HoloLens IP address
+      // HoloLens IP address
+    const char* host = hololens_ip.c_str();
     uint64_t buffer_size = 10;
 
     // Vector to hold all camera streams
     std::vector<CameraStream> streams;
     
-    // Initialize individual camera streams
-    CameraStream lf_stream{hl2ss::stream_port::RM_VLC_LEFTFRONT};
-    CameraStream rf_stream{hl2ss::stream_port::RM_VLC_RIGHTFRONT};
-    CameraStream ll_stream{hl2ss::stream_port::RM_VLC_LEFTLEFT};
-    CameraStream rr_stream{hl2ss::stream_port::RM_VLC_RIGHTRIGHT};
+    // Initialize and set up all camera streams
+    std::vector<uint16_t> ports = {
+        hl2ss::stream_port::RM_VLC_LEFTFRONT,
+        hl2ss::stream_port::RM_VLC_RIGHTFRONT, 
+        hl2ss::stream_port::RM_VLC_LEFTLEFT,
+        hl2ss::stream_port::RM_VLC_RIGHTRIGHT
+    };
+
+    for (auto port : ports) {
+        CameraStream stream{port};
+        setup_camera_stream(stream, host, sensor_id, fps, buffer_size, show_streams);
+        streams.push_back(std::move(stream));
+    }
     
     // Set up each camera stream
-    setup_camera_stream(lf_stream, host, filepath, filename, fps, buffer_size, show_streams);
-    setup_camera_stream(rf_stream, host, filepath, filename, fps, buffer_size, show_streams);
-    setup_camera_stream(ll_stream, host, filepath, filename, fps, buffer_size, show_streams);
-    setup_camera_stream(rr_stream, host, filepath, filename, fps, buffer_size, show_streams);
+    // for (auto& stream : streams) {
+    //     stream.base_path = base_filepath + "/" + subdir_filepath + "/" + stream.name + "/";
+    //     std::filesystem::create_directories(stream.base_path);
+    // }
     
-    // Add streams to vector
-    streams.push_back(std::move(lf_stream));
-    streams.push_back(std::move(rf_stream));
-    streams.push_back(std::move(ll_stream));
-    streams.push_back(std::move(rr_stream));
-
     // Initialize recording listener
     SaveImageStreamListener RecordingListener(nh);
     ros::Subscriber start_sub = nh.subscribe<std_msgs::Empty>("/hri_cacti/dataset_capture/start", 1, &SaveImageStreamListener::StartRecordingCallback, &RecordingListener);
@@ -296,16 +303,24 @@ int main(int argc, char** argv) {
 
         if (RecordingListener.GetRecordingStatus()) {
 
-            // Start recording
+            // If first time recording, setup all streams
             if (!recording) {
                 for (auto& stream : streams) {
-                    stream.output_path = filepath + "/output/" + stream.name + "/" + getTimestampedFilename(filename, ".mp4");
+
+                    // Create a new video writer with the updated output path
+                    nh.param<std::string>("subdir_filepath", subdir_filepath, subdir_filepath);
+                    stream.base_path = base_filepath + "/" + subdir_filepath + "/" + stream.name + "/";
+                    std::filesystem::create_directories(stream.base_path);
+                    stream.output_path = stream.base_path + getTimestampedFilename(base_filename, ".mp4");
                     create_new_video_writer(stream, fps);
                     
+                    // Start the stream
                     stream.source->start();
 
-                    std::cout << "Stream " << stream.name << " started streaming and writing to: " << stream.output_path << std::endl;
+                    // Print the stream status
+                    std::cout << "Started recording'" << stream.name << "' stream to: '" << stream.output_path << "'" << std::endl;
                 }
+                
                 recording = true;
             }
 
@@ -318,9 +333,7 @@ int main(int argc, char** argv) {
                     }
                     stream.source->stop();
                     std::cout << "Stream " << stream.name << " stopped" << std::endl;
-                    // hl2ss::client::close();
                     return 0;
-                    // throw error; 
                 }
                 stream.frame_index = -1;
             }
