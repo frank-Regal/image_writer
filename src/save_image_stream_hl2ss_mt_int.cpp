@@ -118,7 +118,6 @@ void setup_camera_stream(CameraStream& stream, const char* host, const std::stri
                         const std::string& filename, int fps, uint64_t buffer_size, bool show_streams) {
     // Initialize basic stream properties
     stream.name = hl2ss::get_port_name(stream.port);
-    stream.output_path = filepath + "/output/" + stream.name + "/" + filename;
     stream.rotation = GetRotation(stream.port);
     
     // Create output directory and display window if needed
@@ -126,32 +125,19 @@ void setup_camera_stream(CameraStream& stream, const char* host, const std::stri
     if (show_streams) {
         cv::namedWindow(stream.name);
     }
-    
-    // Set up streaming client and start it
-    auto client = create_client(host, stream.port);
-    stream.source = std::make_unique<hl2ss::mt::source>(buffer_size*fps, std::move(client));
-    stream.source->start();
-    
-    // Initialize video writer
-    // cv::Size frame_size(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH);
-    // stream.video_writer = std::make_shared<cv::VideoWriter>(
-    //     stream.output_path,
-    //     cv::VideoWriter::fourcc('M','J','P','G'),  // MJPG codec
-    //     fps,
-    //     frame_size,
-    //     false  // Grayscale video
-    // );
 
-    // Check if video writer initialized successfully
-    // if (!stream.video_writer->isOpened()) {
-    //     std::cout << "Error: Could not open " << stream.name << " video writer" << std::endl;
-    //     throw std::runtime_error("Failed to open video writer");
-    // }
-
+    // Create a video writer object for this stream
     stream.video_writer = std::make_shared<cv::VideoWriter>();
     
     // Initialize image matrix
     stream.mat_image = cv::Mat(hl2ss::parameters_rm_vlc::HEIGHT, hl2ss::parameters_rm_vlc::WIDTH, CV_8UC1);
+    
+    // Set up streaming client and start it
+    auto client = create_client(host, stream.port);
+    stream.source = std::make_unique<hl2ss::mt::source>(buffer_size*fps, std::move(client));
+    // stream.source->start();
+
+    std::cout << "Stream '" << stream.name << "' setup." << std::endl;
 }
 
 /**
@@ -168,10 +154,8 @@ void process_frame(CameraStream& stream, std::shared_ptr<hl2ss::packet> data, bo
         hl2ss::map_rm_vlc region = hl2ss::unpack_rm_vlc(data->payload.get());
         stream.mat_image.data = region.image;
         cv::rotate(stream.mat_image, stream.mat_image_rotated, stream.rotation);
-        std::cout << "Rotated image size: " << stream.mat_image_rotated.size() << std::endl;
         if (stream.video_writer->isOpened()) {
             stream.video_writer->write(stream.mat_image_rotated);
-            std::cout << "Wrote frame to " << stream.name << " video writer" << std::endl;
         }
     }
     stream.current_index = stream.frame_index;
@@ -190,6 +174,14 @@ void create_new_video_writer(CameraStream& stream, int fps) {
     }
 }
 
+std::string getTimestampedFilename(const std::string& base, const std::string& ext) {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << base << "_" << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S") << ext;
+    return ss.str();
+}
+
 
 int main(int argc, char** argv) {
     // Initialize ROS node
@@ -198,7 +190,7 @@ int main(int argc, char** argv) {
 
     // Initialize parameters with default values
     std::string filepath {ros::package::getPath("image_writer")};
-    std::string filename {"video.mp4"};
+    std::string filename {"video"};
     bool save_multi_stream_in_sequence {false};
     bool use_param_server {false};
     bool show_streams {true};  // New parameter to control stream display
@@ -261,22 +253,34 @@ int main(int argc, char** argv) {
         int wait_key_ms = 1;
         std::exception error;
 
-        // Check health of all streams
-        for (auto& stream : streams) {
-            if (!stream.source->status(error)) {
-                std::cout << "Error: Stream " << stream.name << " is not healthy" << std::endl;
-                throw error; 
-            }
-            stream.frame_index = -1;
-        }
-
         if (RecordingListener.GetRecordingStatus()) {
 
+            // Start recording
             if (!recording) {
                 for (auto& stream : streams) {
+                    stream.output_path = filepath + "/output/" + stream.name + "/" + getTimestampedFilename(filename, ".mp4");
                     create_new_video_writer(stream, fps);
+                    
+                    stream.source->start();
+
+                    std::cout << "Stream " << stream.name << " started streaming and writing to: " << stream.output_path << std::endl;
                 }
                 recording = true;
+            }
+
+            // Check health of all streams
+            for (auto& stream : streams) {
+                if (!stream.source->status(error)) {
+                    std::cout << "Error: Stream " << stream.name << " has a problem" << std::endl;
+                    if (stream.video_writer->isOpened()) {
+                        stream.video_writer->release();
+                    }
+                    stream.source->stop();
+                    std::cout << "Stream " << stream.name << " stopped" << std::endl;
+                    return 0;
+                    // throw error; 
+                }
+                stream.frame_index = -1;
             }
 
             int32_t status;
@@ -313,14 +317,18 @@ int main(int argc, char** argv) {
         else {
             recording = false;
             for (auto& stream : streams) {
+                stream.source->stop();
                 stream.video_writer->release();
             }
+            
         }
     }
 
     // Cleanup resources
     for (auto& stream : streams) {
-        stream.video_writer->release();
+        if (stream.video_writer->isOpened()) {
+            stream.video_writer->release();
+        }
         stream.source->stop();
     }
     if (show_streams) {
