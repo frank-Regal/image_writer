@@ -1,0 +1,9 @@
+input:
+  audio_encoding: float
+  sample_rate: 48000
+  channels: 2
+
+output:
+  # if the ouput sample rate is less than the input sample rate,
+  # the audio_encoding will be pcm_16
+  sample_rate: 30000000
